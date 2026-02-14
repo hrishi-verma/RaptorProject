@@ -1,74 +1,94 @@
-# Raptor Project
+# Raptor Project: Geospatial Data Processing for Machine Learning
 
 ## Overview
-**Raptor Project** is a high-performance distributed spatial analysis engine built using **Apache Spark** and **Scala**. Designed to handle large-scale geospatial datasets, the system seamlessly integrates raster data (elevation models) with vector data (administrative regions) to perform complex spatial computations.
 
-The project demonstrates efficient parallel processing of geospatial queries, including QuadTree aggregation, geometry clipping, and point-in-polygon analysis.
+The **Raptor Project** is a high-performance big data processing pipeline built with **Scala** and **Apache Spark**. It is designed to ingest, process, and analyze massive geospatial datasets ("Big Input") to generate features for downstream Machine Learning models.
 
-## Features
-- **Distributed Raster Loading**: Efficiently parses and loads GeoTIFF elevation data into Spark Datasets.
-- **Vector Data Integration**: Ingests GeoJSON files (e.g., state/county boundaries) for spatial joins.
-- **Advanced Spatial Algorithms**:
-    - **Aggregate QuadTree**: Spatial indexing and aggregation for optimized querying.
-    - **Clipping**: geometric clipping of raster data against vector boundaries.
-    - **Point-in-Polygon**: Massively parallel verification of point containment within regional polygons.
-- **Performance Benchmarking**: Built-in metrics to measure execution time for each spatial operation.
+In the context of Machine Learning, data preparation and feature engineering are often the most computationally expensive steps. This project solves the challenge of integrating unstructured **Raster data** (satellite imagery, elevation models) with structured **Vector data** (administrative boundaries) at scale.
 
-## Tech Stack
-- **Language**: Scala 2.12
-- **Framework**: Apache Spark 3.5.5 (Spark SQL)
-- **Data Processing**: GDAL (Geospatial Data Abstraction Library)
-- **Containerization**: Docker
-- **Build Tool**: sbt
+## The "Big Input": Machine Learning Context
 
-## Authors
-- **Rishi**
-- **Liam D. Healey**
-- **Colton Simmons**
+This project specifically targets the **"Big Input"** problem in training ML models for geospatial analytics. 
+Training accurate models (e.g., for crop yield prediction, flood risk assessment, or land use classification) requires processing terabytes of raw data.
 
-## Getting Started
+### 1. Data Volume & Variety
+The system handles two distinct types of massive inputs:
+*   **Raster Data (Big Data)**: High-resolution `.tif` files (e.g., USGS DEMs) representing continuous fields like elevation or temperature. Each file can be hundreds of megabytes, covering vast geographic areas.
+*   **Vector Data (Structured Data)**: Complex `.zip` Shapefiles representing political or physical boundaries (e.g., US Counties).
 
-### Prerequisites
-- **Docker** (Recommended)
-- OR **Java 8+**, **Scala 2.12**, and **Apache Spark** installed locally.
+### 2. Feature Engineering Pipeline
+The core value of this project for ML is **Feature Extraction**. It transforms raw pixels into meaningful statistical features (e.g., "Average Elevation per County") that can be fed directly into:
+*   **Regression Models**: Predicting climate trends based on terrain attributes.
+*   **Classification Models**: Categorizing regions based on topographic profiles.
 
-### Installation & Setup
+## Key Algorithms & Computational Methods
 
-1. **Clone the repository:**
-   ```bash
-   git clone https://github.com/your-repo/raptor-project.git
-   cd raptor-project
-   ```
+To handle the "Big Input" efficiently, the project implements several distributed spatial algorithms:
 
-2. **Data Preparation:**
-   Ensure your raw GeoTIFF data is in `data/Raster_geotiff`. Run the conversion script to prepare the standard TIFF format:
-   ```bash
-   ./geotifConvert.sh
-   ```
+### 1. Aggregate QuadTree
+*   **Purpose**: Rapid approximation and aggregation.
+*   **Mechanism**: Constructs a **QuadTree** spatial index to hierarchically group raster pixels. This allows for fast aggregation of data (e.g., sum, count) over large areas without iterating through every single pixel for every query.
+*   **ML Use Case**: Coarse-grained feature generation for initial model training.
 
-3. **Running with Docker:**
-   Build and run the container:
-   ```bash
-   docker build -t raptor-project .
-   docker run -it raptor-project
-   ```
+### 2. Point in Polygon (Ray Casting)
+*   **Purpose**: Precise spatial join.
+*   **Mechanism**: Uses the **Ray Casting algorithm** to determine exactly which pixels fall within a specific irregular polygon (Result of `PointInPolygon.scala`).
+*   **ML Use Case**: Generating ground-truth labels for pixel-level classification tasks.
 
-4. **Running Locally:**
-   Execute the run script, which handles compilation (sbt package) and spark-submit:
-   ```bash
-   ./run.sh
-   ```
+### 3. Geometric Clipping
+*   **Purpose**: Data reduction and focusing.
+*   **Mechanism**: Filters and clips raster datasets to the bounding box of vector regions before performing expensive geometric checks (`Clipping.scala`).
+*   **ML Use Case**: Creating training chips/patches for Convolutional Neural Networks (CNNs).
 
 ## Project Structure
+
 ```
-raptor-project/
-├── src/main/scala/       # Source code (Spark jobs, Loaders, Algorithms)
-├── data/                 # Data directory (Raster, GeoJSON assets)
-├── build.sbt             # Scala Build Tool configuration
-├── run.sh                # Compilation and execution script
-├── geotifConvert.sh      # Data preprocessing script
-└── Dockerfile            # Container definition
+RaptorProject/
+├── build.sbt               # Scala build configuration & dependencies
+├── run.sh                  # Execution script
+├── src/main/scala/         # Source Code
+│   ├── Main.scala          # Entry point
+│   ├── AggregateQuadTree.scala # spatial aggregation logic
+│   ├── Clipping.scala      # Geometric clipping logic
+│   ├── PointInPolygon.scala # Ray casting algorithm
+│   ├── RasterLoader.scala  # Utilities for loading .tif data
+│   └── VectorLoader.scala  # Utilities for loading .shp data
+└── data/                   # The "Big Input" directory
+    ├── Raster/             # Large TIF files
+    └── Vector/             # Shapefiles (US States/Counties)
 ```
 
+## Prerequisites
+
+*   **Java 8+**
+*   **Scala 2.12.18**
+*   **Apache Spark 3.5.5**
+*   **sbt** (Scala Build Tool)
+
+## Installation & Usage
+
+1.  **Clone the repository:**
+    ```bash
+    git clone <repository-url>
+    cd RaptorProject
+    ```
+
+2.  **Prepare Data:**
+    Ensure your "Big Input" data is placed in the `data/` directory:
+    *   Place `.tif` files in `data/Raster/`
+    *   Place `.zip` shapefiles in `data/Vector/`
+
+3.  **Run the Pipeline:**
+    Use the provided shell script to compile and submit the Spark job.
+    ```bash
+    ./run.sh
+    ```
+    *   This script runs `sbt package` to build the JAR.
+    *   It then submits the job to Spark using `spark-submit`.
+    *   Output logs are directed to `output.log`.
+
 ## Performance
-The application logs execution times for each major operation (Load, QuadTree, Clipping, Point-in-Polygon) to help analyze the efficiency of distributed spatial queries.
+
+The system utilizes Spark's distributed computing capabilities (`RDD`s and `Datasets`) to parallelize operations across multiple cores. 
+*   **Optimization**: Includes spatial indexing (QuadTree) and bounding-box filtering to minimize expensive geometric tests.
+*   **Scalability**: Designed to scale horizontally with the size of the "Big Input".
